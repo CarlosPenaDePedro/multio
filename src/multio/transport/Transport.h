@@ -61,6 +61,8 @@ public:  // methods
 
     virtual void listen();
 
+    virtual void serverListeningStarted() {}
+
     virtual PeerList createServerPeers() const = 0;
 
     const PeerList& clientPeers() const;

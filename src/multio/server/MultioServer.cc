@@ -41,6 +41,7 @@ MultioServer::MultioServer(const eckit::LocalConfiguration& conf, MultioConfigur
     LOG_DEBUG_LIB(multio::LibMultio) << "Server config: " << conf << std::endl;
 
     eckit::Log::info() << "Server start listening..." << std::endl;
+    transport_->serverListeningStarted();
     withFailureHandling([&]() { listener_.start(); });
     eckit::Log::info() << "Listening loop has stopped" << std::endl;
 }

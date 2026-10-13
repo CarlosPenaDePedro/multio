@@ -159,3 +159,28 @@ communicator. Other names may be used.
 If the application is not insisting on carrying out some communicator-splitting internally and thus
 you are free to choose one of the given approaches, the easiest way is to use this approach and
 configure MPI splitting solely through configuration.
+
+
+Synchronization timing
+~~~~~~~~~~~~~~~~~~~~~~
+
+Set ``MULTIO_SYNC_TIMING=1`` before starting the MPI servers to enable one
+timing log from server-communicator rank zero after each existing global
+client synchronization barrier:
+
+.. code-block:: text
+
+    10:11:07 MpiTransport::reportStep: synchronization reached step=12h interval=00:00:27.272 scope=all_server_ranks
+
+``interval`` measures time since the previous synchronization; the first
+interval measures time since the listener started. Durations use a monotonic
+clock. Each line begins with the local wall-clock time in ``HH:MM:SS`` format,
+matching the time-of-day style in ``ifs.stat``. It follows the server process's
+timezone, including ``TZ`` if configured.
+Use the same timezone for clients and servers when comparing with ``ifs.stat``.
+The log is independent of ``updateMeter``.
+
+The setting is read once at server startup and defaults to disabled. Unset it
+or set ``MULTIO_SYNC_TIMING=0`` to disable the timing. When disabled, no timing
+state is activated, clocks are not read and timestamps are not formatted.
+Enabling timing introduces no additional MPI synchronization.

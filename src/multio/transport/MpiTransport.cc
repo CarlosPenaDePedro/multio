@@ -14,10 +14,15 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <ctime>
 #include <fstream>
+#include <iomanip>
+#include <sstream>
 #include <string>
 
+#include "eckit/config/Resource.h"
 #include "eckit/exception/Exceptions.h"
+#include "eckit/log/Log.h"
 #include "eckit/maths/Functions.h"
 #include "eckit/mpi/Comm.h"
 #include "eckit/mpi/Group.h"
@@ -35,6 +40,29 @@
 namespace multio::transport {
 
 namespace {
+std::string formatSyncDuration(std::chrono::steady_clock::duration duration) {
+    const auto total = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+    const auto hours = total / 3600000;
+    const auto minutes = (total / 60000) % 60;
+    const auto seconds = (total / 1000) % 60;
+    const auto millis = total % 1000;
+
+    std::ostringstream out;
+    out << std::setfill('0') << std::setw(2) << hours << ':' << std::setw(2) << minutes << ':' << std::setw(2)
+        << seconds << '.' << std::setw(3) << millis;
+    return out.str();
+}
+
+std::string formatSyncTimestamp(std::chrono::system_clock::time_point time) {
+    const auto timestamp = std::chrono::system_clock::to_time_t(time);
+    std::tm local{};
+    localtime_r(&timestamp, &local);
+
+    std::ostringstream out;
+    out << std::put_time(&local, "%H:%M:%S");
+    return out.str();
+}
+
 Message decodeMessage(eckit::Stream& stream) {
     unsigned t;
     stream >> t;
@@ -239,6 +267,7 @@ void MpiTransport::reportStep(const Message& msg) {
     if (newMinStep > oldMinStep) {
         // Wait for other servers before updating the meter
         serverComm().barrier();
+        reportSyncTiming(newMinStep);
 
         // Only one server should upate the meter
         // Meter reporting can also be disabled by passing 'updateMeter=false' in the metadata
@@ -271,6 +300,27 @@ void MpiTransport::reportStep(const Message& msg) {
             }
         }
     }
+}
+
+void MpiTransport::serverListeningStarted() {
+    static const bool enabled = eckit::Resource<bool>("$MULTIO_SYNC_TIMING", false);
+    if (enabled && serverComm().rank() == 0) {
+        previousSync_ = std::chrono::steady_clock::now();
+    }
+}
+
+void MpiTransport::reportSyncTiming(std::int64_t stepInHours) {
+    if (!previousSync_) {
+        return;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    eckit::Log::info() << formatSyncTimestamp(std::chrono::system_clock::now())
+                       << " MpiTransport::reportStep: synchronization reached"
+                       << " step=" << stepInHours << "h"
+                       << " interval=" << formatSyncDuration(now - *previousSync_)
+                       << " scope=all_server_ranks" << std::endl;
+    previousSync_ = now;
 }
 
 Message MpiTransport::receive() {

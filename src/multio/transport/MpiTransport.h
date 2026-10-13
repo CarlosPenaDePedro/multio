@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <chrono>
+#include <cstdint>
+#include <optional>
 #include <queue>
 #include <string>
 
@@ -62,6 +65,8 @@ private:
 
     void reportStep(const Message& msg);
 
+    void reportSyncTiming(std::int64_t stepInHours);
+
     Message receive() override;
 
     void abort(std::exception_ptr) override;
@@ -77,6 +82,8 @@ private:
     const Peer& localPeer() const override;
 
     void listen() override;
+
+    void serverListeningStarted() override;
 
     PeerList createServerPeers() const override;
 
@@ -102,6 +109,8 @@ private:
     eckit::Queue<ReceivedBuffer> streamQueue_;
 
     std::queue<Message> msgPack_;
+
+    std::optional<std::chrono::steady_clock::time_point> previousSync_;
 };
 
 }  // namespace multio::transport
